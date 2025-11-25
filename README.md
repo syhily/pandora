@@ -1,6 +1,6 @@
 # Blog Attachments Store
 
-This is a repository for storing and uploading images to [S3](https://cdn.yufan.me).
+This is a repository for storing and uploading images to [Assetry](https://github.com/syhily/assetry).
 
 ## ⚙️ How to Install
 
@@ -17,9 +17,9 @@ Interactive configure pandora tool.
 pandora config -h
 ```
 
-### 🖼️ Convert Images
+### 🖼️ Images Procession
 
-Convert images, resize, rename and upload to S3.
+Convert images, resize, rename and upload to Assetry with YAML metadata file.
 
 ```bash
 pandora image -h
@@ -37,23 +37,9 @@ pandora image -h
   -w, --width int       The resized image width (default 1280)
 ```
 
-### ✂️ Split Large Chinese Font
+### 🎵 Netease Music
 
-Split large TTF fonts and deploying them into S3.
-
-```bash
-pandora font -h
-```
-
-**Flags:**
-
-```text
-  -t, --ttf string   The font path
-```
-
-### 🎵 Download Netease Music
-
-Download and upload Netease music to S3 with metadata file.
+Download and upload netease music to Assetry with YAML metadata file.
 
 ```bash
 pandora music -h
@@ -63,13 +49,28 @@ pandora music -h
 
 ```text
   -i, --id int   The music ID
-  -v, --vip      Download through VIP API
+  -v, --vip      Download through 3rd netease VIP API
 ```
 
-### ☁️ Upload Attachments
+### ☁️ Upload Assets
 
-Sync files to S3. Generate image metadata file with thumbhash.
+Upload the file or directory to Assetry.
 
 ```bash
-pandora sync
+pandora upload -h
+```
+
+**Flags:**
+
+```text
+  -f, --file string     The file or directory to be upload
+  -t, --target string   The target path for uploading
+```
+
+### ⏬ Backup Assets
+
+Backup all the assets in Assetry to local directory.
+
+```bash
+pandora backup
 ```
