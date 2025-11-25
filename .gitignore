@@ -1,0 +1,54 @@
+# IDE related configure files
+.idea/*
+test_data
+bin/
+.vscode/
+.DS_Store
+*.log
+.history
+*.bat
+
+# Temp file during testing
+*.test
+.vscode/
+cpu_profile
+*gomock*
+*.db
+
+## Go
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+pandora
+pandora.*
+
+# Go releaser
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+## Node.js / font-splitter
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# npm cache
+.npm/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
