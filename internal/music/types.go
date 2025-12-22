@@ -2,13 +2,13 @@ package music
 
 // NeteaseMusic represents the music metadata structure
 type NeteaseMusic struct {
-	ID     string `yaml:"id"`
-	Name   string `yaml:"name"`
-	Artist string `yaml:"artist"`
-	Album  string `yaml:"album"`
-	Pic    string `yaml:"pic"`
-	Lyric  string `yaml:"lyric"`
-	URL    string `yaml:"url"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Artist string `json:"artist"`
+	Album  string `json:"album"`
+	Pic    string `json:"pic"`
+	Lyric  string `json:"lyric"`
+	URL    string `json:"url"`
 }
 
 // SongUrl represents the response from the song URL API

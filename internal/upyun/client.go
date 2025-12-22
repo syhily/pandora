@@ -2,6 +2,7 @@ package upyun
 
 import (
 	"bytes"
+	"strconv"
 
 	"github.com/qingstor/go-mime"
 	"github.com/upyun/go-sdk/v3/upyun"
@@ -26,8 +27,11 @@ func InitUpyunClient() {
 func Upload(path string, data []byte) error {
 	InitUpyunClient()
 	return client.Put(&upyun.PutObjectConfig{
-		Path:    path,
-		Reader:  bytes.NewReader(data),
-		Headers: map[string]string{"Content-Length": mime.DetectFilePath(path)},
+		Path:   path,
+		Reader: bytes.NewReader(data),
+		Headers: map[string]string{
+			"Content-Type":   mime.DetectFilePath(path),
+			"Content-Length": strconv.Itoa(len(data)),
+		},
 	})
 }
