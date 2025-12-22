@@ -11,7 +11,18 @@ This is a repository for storing and uploading images to [Assetry](https://githu
 
 ### 🪄 Tool Configuration
 
-Sample config file
+```yaml
+upyun:
+  bucket: demo
+  operator: op
+  password: pwd
+asset:
+  scheme: https
+  domain: cat.yufan.me
+  path:
+    image: /images
+    music: /musics
+```
 
 ### 🖼️ Images Procession
 
@@ -46,27 +57,4 @@ pandora music -h
 ```text
   -i, --id int   The music ID
   -v, --vip      Download through 3rd netease VIP API
-```
-
-### ☁️ Upload Assets
-
-Upload the file or directory to Assetry.
-
-```bash
-pandora upload -h
-```
-
-**Flags:**
-
-```text
-  -f, --file string     The file or directory to be upload
-  -t, --target string   The target path for uploading
-```
-
-### ⏬ Backup Assets
-
-Backup all the assets in Assetry to local directory.
-
-```bash
-pandora backup
 ```

@@ -6,9 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/syhily/pandora/internal/config"
+	"github.com/syhily/pandora/internal/upyun"
 )
-
-var configPath string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -24,5 +23,10 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", config.DefaultConfigFile(), "The config file")
+	// Loading global config file.
+	var configFile string
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", config.DefaultConfigFile(), "The config file")
+	config.ReadConfig(configFile)
+	// Init the UPYUN client.
+	upyun.InitUpyunClient()
 }
