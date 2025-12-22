@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/h2non/bimg"
+
+	"github.com/syhily/pandora/internal/config"
 )
 
 // BimgToImage converts a bimg.Image into a standard Go image.Image.
@@ -26,20 +28,20 @@ func BimgToImage(b *bimg.Image) (image.Image, error) {
 	reader := bytes.NewReader(buf)
 
 	switch format {
-	case "jpeg", "jpg":
+	case config.JPEG, config.JPG:
 		return jpeg.Decode(reader)
-	case "png", "apng":
+	case config.PNG, config.APNG:
 		return png.Decode(reader)
-	case "gif":
+	case config.GIF:
 		return gif.Decode(reader)
-	case "bmp":
-		// Convert BMP to PNG first (since Go's stdlib doesn't support BMP decoding)
+	case config.BMP:
+		// Convert BMP to PNG first (since Go's std doesn't support BMP decoding)
 		pngBuf, err := bimg.NewImage(buf).Convert(bimg.PNG)
 		if err != nil {
 			return nil, err
 		}
 		return png.Decode(bytes.NewReader(pngBuf))
-	case "webp", "avif", "svg":
+	case config.WEBP, config.AVIF, config.SVG:
 		// Convert unsupported formats (WebP, AVIF, SVG) to PNG first
 		pngBuf, err := bimg.NewImage(buf).Convert(bimg.PNG)
 		if err != nil {
@@ -54,22 +56,22 @@ func BimgToImage(b *bimg.Image) (image.Image, error) {
 // ImageType converts a format string to bimg.ImageType
 func ImageType(format string) bimg.ImageType {
 	switch format {
-	case JPG:
-	case JPEG:
+	case config.JPG:
+	case config.JPEG:
 		return bimg.JPEG
-	case PNG:
+	case config.PNG:
 		return bimg.PNG
-	case AVIF:
+	case config.AVIF:
 		return bimg.AVIF
-	case GIF:
+	case config.GIF:
 		return bimg.GIF
-	case APNG:
+	case config.APNG:
 		return bimg.PNG
-	case BMP:
+	case config.BMP:
 		return bimg.JPEG
-	case WEBP:
+	case config.WEBP:
 		return bimg.WEBP
-	case SVG:
+	case config.SVG:
 		return bimg.SVG
 	}
 	return bimg.JPEG
@@ -77,9 +79,16 @@ func ImageType(format string) bimg.ImageType {
 
 // SupportedFormats returns a comma-separated string of supported formats
 func SupportedFormats() string {
-	extensions := make([]string, 0, len(SupportExtensions))
-	for k := range SupportExtensions {
+	extensions := make([]string, 0, len(config.SupportExtensions))
+	for k := range config.SupportExtensions {
 		extensions = append(extensions, k)
 	}
 	return strings.Join(extensions, ", ")
+}
+
+// IsSupportedImage checks if a file name has a supported image extension
+func IsSupportedImage(name string) (bool, string) {
+	ext := strings.ToLower(name[strings.LastIndex(name, ".")+1:])
+	_, ok := config.SupportExtensions[ext]
+	return ok, ext
 }

@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"encoding/json"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/syhily/pandora/internal/config"
 	"github.com/syhily/pandora/internal/image"
+	"github.com/syhily/pandora/internal/upyun"
 )
 
 var (
@@ -16,8 +19,6 @@ var (
 		Use:   "image",
 		Short: "Convert images, resize, rename and upload to S3.",
 		Run: func(cmd *cobra.Command, args []string) {
-			cfg := config.ReadConfig(configPath)
-
 			// Check the image source path is valid.
 			info, err := os.Stat(imageSource)
 			if err != nil {
@@ -40,7 +41,7 @@ var (
 			defer file.Close()
 
 			// File convert format check.
-			if _, ok := image.SupportExtensions[imageFormat]; !ok {
+			if ok, _ := image.IsSupportedImage(imageFormat); !ok {
 				log.Fatalf("Invalid convert format, only supports %s", image.SupportedFormats())
 			}
 
@@ -54,16 +55,29 @@ var (
 			}
 
 			if imageQuality == 0 {
-				imageQuality = cfg.Convert.DefaultQuality
+				imageQuality = 85
 			}
 			if imageFormat == "" {
-				imageFormat = cfg.Convert.DefaultFormat
+				imageFormat = "jpg"
 			}
 
-			processor := image.NewProcessor(cfg)
-			if err := processor.Process(file, width, height, dt, imageFormat, imageQuality, uploadImage); err != nil {
+			key, bytes, err := image.Process(file, width, height, dt, imageFormat, imageQuality)
+			if err != nil {
 				log.Fatalf("Failed to process image: %v", err)
 			}
+
+			// Upload the image metadata to UPYUN.
+			meta, err := image.GenMetadata(key, bytes)
+			if err != nil {
+				log.Fatalf("Failed to generate metadata: %v", err)
+			}
+			metaBytes, err := json.Marshal(meta)
+			if err != nil {
+				log.Fatalf("Failed to serialize metadata: %v", err)
+			}
+			upyun.Upload(key[:strings.LastIndex(key, ".")]+".json", metaBytes)
+
+			log.Printf("Image processed successfully: %s (%d bytes)", key, len(bytes))
 		},
 	}
 
@@ -81,7 +95,7 @@ func init() {
 	imageCmd.Flags().IntVarP(&width, "width", "w", 1280, "The resized image width")
 	imageCmd.Flags().IntVarP(&height, "height", "", 0, "The optional image height, 0 for keep ratio")
 	imageCmd.Flags().StringVarP(&imageLocalDate, "time", "t", "", "The date time, in 20060102 format")
-	imageCmd.Flags().StringVarP(&imageFormat, "format", "f", image.JPG, "The image format")
+	imageCmd.Flags().StringVarP(&imageFormat, "format", "f", config.JPG, "The image format")
 	imageCmd.Flags().IntVarP(&imageQuality, "quality", "q", 0, "The image quality")
 	imageCmd.Flags().BoolVarP(&uploadImage, "upload", "u", true, "Whether to upload image")
 

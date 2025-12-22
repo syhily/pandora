@@ -14,15 +14,12 @@ var (
 		Use:   "music",
 		Short: "Download and upload Netease music to S3 with metadata file.",
 		Run: func(cmd *cobra.Command, args []string) {
-			cfg := config.ReadConfig(configPath)
-			processor := music.NewProcessor(cfg)
-
+			processor := music.NewProcessor(config.GetConfig())
 			if err := processor.Process(musicId, vip); err != nil {
 				log.Fatalf("Failed to process music: %v", err)
 			}
 		},
 	}
-
 	musicId int
 	vip     bool
 )

@@ -1,31 +1,26 @@
 package music
 
 import (
-	"bufio"
 	"bytes"
 	"cmp"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/go-musicfox/netease-music/service"
 	"github.com/h2non/bimg"
-	"go.yaml.in/yaml/v4"
 
 	"github.com/syhily/pandora/internal/config"
 	"github.com/syhily/pandora/internal/http"
-	"github.com/syhily/pandora/internal/s3"
+	"github.com/syhily/pandora/internal/upyun"
 )
 
 // Processor handles music processing operations
 type Processor struct {
 	config     *config.PandoraConfig
-	s3Client   *s3.Client
 	httpClient *http.Client
 }
 
@@ -33,7 +28,6 @@ type Processor struct {
 func NewProcessor(cfg *config.PandoraConfig) *Processor {
 	return &Processor{
 		config:     cfg,
-		s3Client:   s3.NewClient(&cfg.MusicS3),
 		httpClient: http.NewClient(),
 	}
 }
@@ -76,12 +70,13 @@ func (p *Processor) Process(musicID int, useVIP bool) error {
 		return fmt.Errorf("failed to download song: %w", err)
 	}
 
-	musicKey := "musics/" + id + ".mp3"
-	if err := p.s3Client.UploadObject(context.TODO(), musicKey, content); err != nil {
+	musicKey := strings.Join([]string{p.config.Asset.Path.Music, id + ".mp3"}, "/")
+
+	if err := upyun.Upload(musicKey, content); err != nil {
 		return fmt.Errorf("failed to upload music: %w", err)
 	}
 
-	metadata.URL, _ = url.JoinPath(p.config.MusicS3.PublicDomain, musicKey)
+	metadata.URL, _ = url.JoinPath(p.config.Asset.Scheme+"://"+p.config.Asset.Domain, musicKey)
 	log.Println("Successfully upload the music", id)
 
 	// Try to resolve the song details
@@ -122,12 +117,12 @@ func (p *Processor) Process(musicID int, useVIP bool) error {
 		return fmt.Errorf("failed to convert the images: %w", err)
 	}
 
-	picKey := "musics/" + id + ".jpg"
-	if err := p.s3Client.UploadObject(context.TODO(), picKey, pic); err != nil {
+	picKey := strings.Join([]string{p.config.Asset.Path.Music, id + ".jpg"}, "/")
+	if err := upyun.Upload(picKey, pic); err != nil {
 		return fmt.Errorf("failed to upload album pic: %w", err)
 	}
 
-	metadata.Pic, _ = url.JoinPath(p.config.MusicS3.PublicDomain, picKey)
+	metadata.Pic, _ = url.JoinPath(p.config.Asset.Scheme+"://"+p.config.Asset.Domain, picKey)
 	log.Println("Successfully upload the album pic", id)
 
 	// Try to resolve the song lyric
@@ -141,29 +136,14 @@ func (p *Processor) Process(musicID int, useVIP bool) error {
 
 	metadata.Lyric = cmp.Or(lyric.Tlyric.Lyric, lyric.Klyric.Lyric, lyric.Lrc.Lyric, "[00:00.00]无歌词")
 
-	// Save music metadata file into blog project.
-	filename := filepath.Join(p.config.BlogRoot, "src", "content", "metas", "musics", id+".yml")
-	if err := os.MkdirAll(filepath.Dir(filename), os.FileMode(0755)); err != nil {
-		return fmt.Errorf("failed to create metadata directory: %w", err)
-	}
-
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(0644))
+	// Upload music metadata file to UPYUN
+	metadataKey := strings.Join([]string{p.config.Asset.Path.Music, id + ".json"}, "/")
+	metaBytes, err := json.Marshal(metadata)
 	if err != nil {
-		return fmt.Errorf("failed to generate the metadata file: %w", err)
-	}
-	defer file.Close()
-
-	writer := bufio.NewWriter(file)
-	defer writer.Flush()
-
-	encoder := yaml.NewEncoder(writer)
-	encoder.SetIndent(2)
-	if err := encoder.Encode(metadata); err != nil {
 		return fmt.Errorf("failed to save image metadata: %w", err)
 	}
-
-	log.Println("Save the music metadata", id)
-	return nil
+	log.Println("Upload the music metadata", id)
+	return upyun.Upload(metadataKey, metaBytes)
 }
 
 // getVIPURL gets the VIP URL for a song

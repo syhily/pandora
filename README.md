@@ -1,6 +1,6 @@
 # Blog Attachments Store
 
-This is a repository for storing and uploading images to [S3](https://cdn.yufan.me).
+This is a repository for storing and uploading images to [Assetry](https://github.com/syhily/assetry).
 
 ## ⚙️ How to Install
 
@@ -11,15 +11,22 @@ This is a repository for storing and uploading images to [S3](https://cdn.yufan.
 
 ### 🪄 Tool Configuration
 
-Interactive configure pandora tool.
-
-```bash
-pandora config -h
+```yaml
+upyun:
+  bucket: demo
+  operator: op
+  password: pwd
+asset:
+  scheme: https
+  domain: cat.yufan.me
+  path:
+    image: /images
+    music: /musics
 ```
 
-### 🖼️ Convert Images
+### 🖼️ Images Procession
 
-Convert images, resize, rename and upload to S3.
+Convert images, resize, rename and upload to Assetry with YAML metadata file.
 
 ```bash
 pandora image -h
@@ -37,23 +44,9 @@ pandora image -h
   -w, --width int       The resized image width (default 1280)
 ```
 
-### ✂️ Split Large Chinese Font
+### 🎵 Netease Music
 
-Split large TTF fonts and deploying them into S3.
-
-```bash
-pandora font -h
-```
-
-**Flags:**
-
-```text
-  -t, --ttf string   The font path
-```
-
-### 🎵 Download Netease Music
-
-Download and upload Netease music to S3 with metadata file.
+Download and upload netease music to Assetry with YAML metadata file.
 
 ```bash
 pandora music -h
@@ -63,13 +56,5 @@ pandora music -h
 
 ```text
   -i, --id int   The music ID
-  -v, --vip      Download through VIP API
-```
-
-### ☁️ Upload Attachments
-
-Sync files to S3. Generate image metadata file with thumbhash.
-
-```bash
-pandora sync
+  -v, --vip      Download through 3rd netease VIP API
 ```

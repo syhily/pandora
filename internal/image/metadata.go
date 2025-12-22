@@ -2,7 +2,7 @@ package image
 
 import (
 	"encoding/base64"
-	"log"
+	"fmt"
 
 	"github.com/h2non/bimg"
 	"go.n16f.net/thumbhash"
@@ -14,26 +14,23 @@ const (
 
 // ImageMetadata represents image metadata
 type ImageMetadata struct {
-	Slug     string `json:"slug"`
 	Width    int    `json:"width"`
 	Height   int    `json:"height"`
 	Blurhash string `json:"blurhash"`
 }
 
-// ReadImageMetadata reads and generates metadata for an image
-func ReadImageMetadata(file string, key string, content []byte) *ImageMetadata {
-	if ok, _ := IsSupportedImage(file); ok {
+// GenMetadata generates metadata for an converted image
+func GenMetadata(key string, content []byte) (*ImageMetadata, error) {
+	if ok, _ := IsSupportedImage(key); ok {
 		img := bimg.NewImage(content)
 		img.Image()
 		size, err := img.Size()
 		if err != nil {
-			log.Printf("Failed to read the image size for %v", file)
-			return nil
+			return nil, fmt.Errorf("Failed to read the image size for %v. Cause: %w", key, err)
 		}
 		coded, err := BimgToImage(img)
 		if err != nil {
-			log.Printf("Failed to decode the image for %v", file)
-			return nil
+			return nil, fmt.Errorf("Failed to decode the image for %v. Cause: %w", key, err)
 		}
 		var blurWidth = BlurSize
 		var blurHeight = BlurSize
@@ -51,11 +48,10 @@ func ReadImageMetadata(file string, key string, content []byte) *ImageMetadata {
 
 		hash := thumbhash.EncodeImage(coded)
 		return &ImageMetadata{
-			Slug:     key,
 			Width:    size.Width,
 			Height:   size.Height,
 			Blurhash: base64.StdEncoding.EncodeToString(hash),
-		}
+		}, nil
 	}
-	return nil
+	return nil, fmt.Errorf("Unsupported image format: %s", key)
 }
