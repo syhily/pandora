@@ -1,7 +1,6 @@
 package music
 
 import (
-	"bufio"
 	"bytes"
 	"cmp"
 	"encoding/json"
@@ -139,16 +138,12 @@ func (p *Processor) Process(musicID int, useVIP bool) error {
 
 	// Upload music metadata file to UPYUN
 	metadataKey := strings.Join([]string{p.config.Asset.Path.Music, id + ".json"}, "/")
-	bytes := &bytes.Buffer{}
-	writer := bufio.NewWriter(bytes)
-	encoder := json.NewEncoder(writer)
-	if err := encoder.Encode(metadata); err != nil {
+	metaBytes, err := json.Marshal(metadata)
+	if err != nil {
 		return fmt.Errorf("failed to save image metadata: %w", err)
 	}
-	_ = writer.Flush()
-
 	log.Println("Upload the music metadata", id)
-	return upyun.Upload(metadataKey, bytes.Bytes())
+	return upyun.Upload(metadataKey, metaBytes)
 }
 
 // getVIPURL gets the VIP URL for a song
