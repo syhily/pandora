@@ -11,11 +11,7 @@ This is a repository for storing and uploading images to [Assetry](https://githu
 
 ### 🪄 Tool Configuration
 
-Interactive configure pandora tool.
-
-```bash
-pandora config -h
-```
+Sample config file
 
 ### 🖼️ Images Procession
 

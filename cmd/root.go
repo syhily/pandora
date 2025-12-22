@@ -24,5 +24,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", config.DefaultConfigRoot(), "The config file directory")
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", config.DefaultConfigFile(), "The config file")
 }

@@ -1,77 +1,87 @@
 package config
 
 import (
+	"errors"
 	"fmt"
-	"log"
-	"os"
 	"reflect"
-	"strconv"
+	"regexp"
+	"slices"
 	"strings"
-
-	"github.com/syhily/pandora/internal/common"
 )
 
 // promptTag represents the parsed prompt tag information
 type promptTag struct {
-	label        string
-	required     bool
-	defaultValue string
-	validate     string
-	optional     bool
+	label        string         // The label is the prompt message shown to the user
+	required     bool           // Whether the field is required
+	defaultValue string         // The default value for the field
+	enums        []string       // Comma-separated list of valid values for the field
+	regex        *regexp.Regexp // The regex pattern that the input field value must match
 }
 
-// parsePromptTag parses the prompt tag string
-func parsePromptTag(tag string) promptTag {
-	pt := promptTag{}
-	parts := strings.Split(tag, ",")
-	for _, part := range parts {
-		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+// parsePromptTag parses the prompt tag string into a promptTag struct
+func parsePromptTag(tag string) (*promptTag, error) {
+	pt := &promptTag{}
+	for part := range strings.SplitSeq(tag, "|") {
+		kv := strings.SplitN(strings.TrimSpace(part), ":", 2)
 		if len(kv) != 2 {
 			continue
 		}
 		key := strings.TrimSpace(kv[0])
 		value := strings.TrimSpace(kv[1])
-
 		switch key {
 		case "label":
 			pt.label = value
 		case "required":
-			pt.required = value == "true"
+			pt.required = strings.ToLower(value) == "true" || value == "1"
 		case "default":
 			pt.defaultValue = value
-		case "validate":
-			pt.validate = value
-		case "optional":
-			pt.optional = value == "true"
+		case "enums":
+			pt.enums = strings.Split(value, ",")
+			for i := range pt.enums {
+				pt.enums[i] = strings.TrimSpace(pt.enums[i])
+			}
+		case "regex":
+			reg, err := regexp.Compile(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid regex %s: %w", value, err)
+			}
+			pt.regex = reg
+		default:
+			return nil, errors.New("unknown prompt tag key: " + key)
 		}
 	}
-	return pt
+	return pt, nil
 }
 
-// promptString prompts for a string value
-func promptString(pt promptTag, currentValue string) string {
-	label := pt.label
-	if label == "" {
-		return currentValue
-	}
-
+// promptValue prompts for a string value
+func promptValue(pt *promptTag, alternative string) (string, error) {
 	// Build prompt message
-	prompt := fmt.Sprintf("Please input %s", label)
-	if pt.defaultValue != "" {
-		prompt += fmt.Sprintf(" (Default: [%s])", pt.defaultValue)
-	}
-	if pt.optional {
-		prompt += " [Optional]"
-	}
-	if pt.required {
-		prompt += " [Required]"
-	}
-	prompt += ": "
+	prompt := strings.Builder{}
 
-	fmt.Print(prompt)
+	// If no label, use the alternative
+	if pt.label == "" {
+		prompt.WriteString(fmt.Sprintf("Please input %s", alternative))
+	} else {
+		prompt.WriteString(fmt.Sprintf("Please input %s", pt.label))
+		if len(pt.enums) > 0 {
+			prompt.WriteString(fmt.Sprintf(" <Options: %s>", strings.Join(pt.enums, ", ")))
+		}
+		if pt.defaultValue != "" {
+			prompt.WriteString(fmt.Sprintf(" (Default: [%s])", pt.defaultValue))
+		}
+		if pt.required {
+			prompt.WriteString(" [Required]")
+		} else {
+			prompt.WriteString(" [Optional]")
+		}
+		prompt.WriteString(": ")
+	}
+	fmt.Print(prompt.String())
 
+	// Read input from user
 	var input string
 	_, _ = fmt.Scanln(&input)
+	input = strings.TrimSpace(input)
 
 	// Use default if empty
 	if input == "" && pt.defaultValue != "" {
@@ -79,126 +89,25 @@ func promptString(pt promptTag, currentValue string) string {
 	}
 
 	// Validate if required
-	if pt.required && input == "" {
-		log.Fatalf("%s is required", label)
+	if (pt.required || len(pt.enums) > 0 || pt.regex != nil) && input == "" {
+		return "", fmt.Errorf("%s is required", pt.label)
 	}
 
-	// Apply validation
-	if input != "" && pt.validate != "" {
-		if err := validateValue(input, pt.validate); err != nil {
-			log.Fatalf("Validation failed for %s: %v", label, err)
+	// Validate enums
+	if len(pt.enums) > 0 {
+		if !slices.Contains(pt.enums, input) {
+			return "", fmt.Errorf("invalid value for %s, valid options are: %s", pt.label, strings.Join(pt.enums, ", "))
 		}
 	}
 
-	return input
-}
-
-// promptInt prompts for an int value
-func promptInt(pt promptTag, currentValue int) int {
-	label := pt.label
-	if label == "" {
-		return currentValue
-	}
-
-	// Build prompt message
-	prompt := fmt.Sprintf("Please input %s", label)
-	if pt.defaultValue != "" {
-		prompt += fmt.Sprintf(" (Default: [%s])", pt.defaultValue)
-	}
-	if pt.optional {
-		prompt += " [Optional]"
-	}
-	if pt.required {
-		prompt += " [Required]"
-	}
-	prompt += ": "
-
-	fmt.Print(prompt)
-
-	var input string
-	_, _ = fmt.Scanln(&input)
-
-	// Use default if empty
-	if input == "" && pt.defaultValue != "" {
-		input = pt.defaultValue
-	}
-
-	// If empty and not required, return current value
-	if input == "" {
-		if pt.required {
-			log.Fatalf("%s is required", label)
-		}
-		return currentValue
-	}
-
-	// Parse int
-	value, err := strconv.Atoi(input)
-	if err != nil {
-		log.Fatalf("Invalid integer value for %s: %v", label, err)
-	}
-
-	// Apply validation
-	if pt.validate != "" {
-		if err := validateValue(fmt.Sprintf("%d", value), pt.validate); err != nil {
-			log.Fatalf("Validation failed for %s: %v", label, err)
+	// Validate the regex
+	if pt.regex != nil {
+		if !pt.regex.MatchString(input) {
+			return "", fmt.Errorf("the input doesn't match the regex %s", pt.regex.String())
 		}
 	}
 
-	return value
-}
-
-// validateValue applies validation based on the validate tag
-func validateValue(value, validateType string) error {
-	switch validateType {
-	case "http_prefix":
-		if !strings.HasPrefix(value, "http") {
-			return fmt.Errorf("must start with 'http'")
-		}
-	case "http_suffix":
-		if !strings.HasSuffix(value, "http") {
-			return fmt.Errorf("must end with 'http'")
-		}
-	case "image_format":
-		if _, ok := common.SupportExtensions[value]; !ok {
-			return fmt.Errorf("unsupported format: %s. Supported: %v", value, common.SupportExtensions)
-		}
-	}
-	return nil
-}
-
-// promptStruct recursively prompts for all fields in a struct
-func promptStruct(v reflect.Value, t reflect.Type, prefix string) {
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		fieldValue := v.Field(i)
-
-		// Skip unexported fields
-		if !fieldValue.CanSet() {
-			continue
-		}
-
-		// Handle nested structs
-		if field.Type.Kind() == reflect.Struct {
-			// Add section header for nested structs
-			fieldName := field.Name
-			// Convert field name to a more readable format (e.g., ImageS3 -> Image S3)
-			readableName := toReadableName(fieldName)
-			if prefix != "" {
-				fmt.Printf("\n=== %s %s ===\n", prefix, readableName)
-			} else {
-				fmt.Printf("\n=== %s ===\n", readableName)
-			}
-			// Pass the field name as prefix for nested prompts
-			promptStruct(fieldValue, field.Type, readableName)
-			continue
-		}
-
-		// Prompt for field with prefix context
-		newValue := promptFieldWithPrefix(field, fieldValue, prefix)
-		if newValue.IsValid() {
-			fieldValue.Set(newValue)
-		}
-	}
+	return input, nil
 }
 
 // toReadableName converts a field name like "ImageS3" to "Image S3"
@@ -256,51 +165,35 @@ func promptFieldWithPrefix(field reflect.StructField, currentValue reflect.Value
 	}
 }
 
-// PromptConfig interactively prompts the user for configuration values using struct tags
-func PromptConfig() *PandoraConfig {
-	cfg := &PandoraConfig{}
+// promptStruct recursively prompts for all fields in a struct
+func promptStruct(v reflect.Value, t reflect.Type, prefix string) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		fieldValue := v.Field(i)
 
-	// Handle special case for ProjectRoot (use current directory as default)
-	executeRoot, _ := os.Getwd()
+		// Skip unexported fields
+		if !fieldValue.CanSet() {
+			continue
+		}
 
-	fmt.Println("=== Pandora Configuration ===")
-	fmt.Println()
+		// Handle nested structs
+		if field.Type.Kind() == reflect.Struct {
+			// Add section header for nested structs
+			fieldName := field.Name
+			// Convert field name to a more readable format (e.g., ImageS3 -> Image S3)
+			readableName := toReadableName(fieldName)
+			if prefix != "" {
+				readableName = prefix + " " + readableName
+			}
+			// Pass the field name as prefix for nested prompts
+			promptStruct(fieldValue, field.Type, readableName)
+			continue
+		}
 
-	// Use reflection to prompt for all fields
-	v := reflect.ValueOf(cfg).Elem()
-	t := reflect.TypeOf(cfg).Elem()
-
-	promptStruct(v, t, "")
-
-	// Post-processing: handle special cases
-	// 1. ProjectRoot default to current directory if empty
-	if cfg.ProjectRoot == "" || cfg.ProjectRoot == "." {
-		cfg.ProjectRoot = executeRoot
-	}
-
-	// 2. ImageS3: region or endpoint must have at least one
-	if cfg.ImageS3.Region == "" && cfg.ImageS3.Endpoint == "" {
-		fmt.Println("\nNote: At least one of region or endpoint must be provided for ImageS3")
-		fmt.Println("Please input the s3 region (Optional)")
-		_, _ = fmt.Scanln(&cfg.ImageS3.Region)
-		fmt.Println("Please input the s3 endpoint (Optional)")
-		_, _ = fmt.Scanln(&cfg.ImageS3.Endpoint)
-	}
-	if cfg.ImageS3.Region == "" {
-		cfg.ImageS3.Region = "auto"
-	}
-
-	// 3. MusicS3: region defaults to "auto" if empty
-	if cfg.MusicS3.Region == "" {
-		cfg.MusicS3.Region = "auto"
-	}
-
-	// 4. Convert format validation
-	if cfg.Convert.DefaultFormat != "" {
-		if _, ok := common.SupportExtensions[cfg.Convert.DefaultFormat]; !ok {
-			log.Fatalf("Unsupported convert format: %s", cfg.Convert.DefaultFormat)
+		// Prompt for field with prefix context
+		newValue := promptFieldWithPrefix(field, fieldValue, prefix)
+		if newValue.IsValid() {
+			fieldValue.Set(newValue)
 		}
 	}
-
-	return cfg
 }
