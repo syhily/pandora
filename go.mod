@@ -3,7 +3,7 @@ module github.com/syhily/pandora
 go 1.25.4
 
 require (
-	github.com/go-musicfox/netease-music v1.5.0
+	github.com/go-musicfox/netease-music v1.6.0
 	github.com/h2non/bimg v1.1.9
 	github.com/qingstor/go-mime v0.1.0
 	github.com/spf13/cobra v1.10.2
